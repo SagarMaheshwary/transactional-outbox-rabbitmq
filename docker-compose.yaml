@@ -1,0 +1,74 @@
+services:
+  order-service:
+    build:
+      context: ./order-service
+      target: development
+    container_name: order-service
+    ports:
+      - 4000:4000
+    volumes:
+      - ./order-service:/app
+    depends_on:
+      order-db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  notification-service:
+    build:
+      context: ./notification-service
+      target: development
+    container_name: notification-service
+    volumes:
+      - ./notification-service:/app
+    depends_on:
+      notification-db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  order-db:
+    image: postgres:15
+    container_name: order-db
+    # ports:
+    #   - 5432:5432
+    environment:
+      - POSTGRES_DB=order-service
+      - POSTGRES_PASSWORD=password
+    volumes:
+      - ./order-service/schema.sql:/docker-entrypoint-initdb.d/schema.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d order-service"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  notification-db:
+    image: postgres:15
+    container_name: notification-db
+    # ports:
+    #   - 5433:5432
+    environment:
+      - POSTGRES_DB=notification-service
+      - POSTGRES_PASSWORD=password
+    volumes:
+      - ./notification-service/schema.sql:/docker-entrypoint-initdb.d/schema.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d notification-service"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    container_name: rabbitmq
+    ports:
+      - 15672:15672
+    environment:
+      - RABBITMQ_DEFAULT_USER=default
+      - RABBITMQ_DEFAULT_PASS=default
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "check_port_connectivity"]
+      interval: 10s
+      timeout: 5s
+      retries: 10

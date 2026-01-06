@@ -1,0 +1,89 @@
+package service
+
+import (
+	"context"
+
+	"github.com/sagarmaheshwary/transactional-outbox-rabbitmq/order-service/internal/database"
+	"github.com/sagarmaheshwary/transactional-outbox-rabbitmq/order-service/internal/database/model"
+	"github.com/sagarmaheshwary/transactional-outbox-rabbitmq/order-service/internal/logger"
+	"gorm.io/gorm"
+)
+
+type OutboxEventService interface {
+	Create(ctx context.Context, tx *gorm.DB, row *model.OutboxEvent) error
+	UpdateState(ctx context.Context, eventID string, update map[string]interface{}) error
+	ClaimEvents(ctx context.Context, workerID string, limit int) ([]*model.OutboxEvent, error)
+}
+
+type outboxEventService struct {
+	db  *gorm.DB
+	log logger.Logger
+}
+
+type OutboxEventServiceOpts struct {
+	DB  database.DatabaseService
+	Log logger.Logger
+}
+
+func NewOutboxEventService(opts *OutboxEventServiceOpts) OutboxEventService {
+	return &outboxEventService{
+		db:  opts.DB.DB(),
+		log: opts.Log,
+	}
+}
+
+func (o *outboxEventService) Create(ctx context.Context, tx *gorm.DB, row *model.OutboxEvent) error {
+	return tx.WithContext(ctx).Save(row).Error
+}
+
+func (o *outboxEventService) UpdateState(
+	ctx context.Context,
+	eventID string,
+	update map[string]interface{},
+) error {
+	return o.db.WithContext(ctx).
+		Model(&model.OutboxEvent{}).
+		Where("id = ?", eventID).
+		UpdateColumns(update).
+		Error
+}
+
+func (o *outboxEventService) ClaimEvents(
+	ctx context.Context,
+	workerID string,
+	limit int,
+) ([]*model.OutboxEvent, error) {
+	var events []*model.OutboxEvent
+
+	err := o.db.WithContext(ctx).
+		Raw(`
+        UPDATE outbox_events
+        SET
+					status = ?,
+					locked_at = NOW(),
+					locked_by = ?
+        WHERE id IN (
+					SELECT id
+					FROM outbox_events
+					WHERE
+							status = ?
+							OR (
+								status = ?
+								AND locked_at < NOW() - INTERVAL '30 seconds'
+							)
+						
+					ORDER BY created_at
+					LIMIT ?
+					FOR UPDATE SKIP LOCKED
+        )
+        RETURNING *`,
+			model.OutboxEventStatusInProgress,
+			workerID,
+			model.OutboxEventStatusPending,
+			model.OutboxEventStatusInProgress,
+			limit,
+		).
+		Scan(&events).Error
+
+	return events, err
+}
