@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"strconv"
 	"time"
 
 	"github.com/rabbitmq/amqp091-go"
@@ -89,20 +88,21 @@ func (r *RabbitMQ) handleMessage(ctx context.Context, message amqp091.Delivery) 
 		return errors.New("invalid message id")
 	}
 
-	inserted, err := r.ProcessedMessageService.TryInsert(ctx, nil, &model.ProcessedMessage{
+	// Try insert into processed_messages to ensure exactly-once processing
+	inserted, err := r.ProcessedMessageService.TryInsert(ctx, &model.ProcessedMessage{
 		MessageID:   messageID,
 		ProcessedAt: time.Now(),
 	})
 	if err != nil {
 		return err
 	}
+
+	// If not inserted, message was already processed, skip
 	if !inserted {
 		return nil
 	}
 
-	userID := body["user_id"].(float64)
-
-	r.Log.Info("Order email sent to UserID: " + strconv.Itoa(int(userID)))
+	r.Log.Info("Order email sent to customer", logger.Field{Key: "payload", Value: body})
 
 	return nil
 }

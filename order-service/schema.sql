@@ -1,9 +1,7 @@
 CREATE TABLE
   IF NOT EXISTS orders (
     id bigserial primary key,
-    user_id bigint not null,
     status varchar(10) not null,
-    amount numeric(12, 2) not null,
     created_at timestamp default now (),
     updated_at timestamp default null
   );

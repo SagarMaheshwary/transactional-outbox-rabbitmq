@@ -2,9 +2,9 @@ package rabbitmq
 
 import "github.com/rabbitmq/amqp091-go"
 
-func (b *RabbitMQ) initExchange(ch *amqp091.Channel) error {
+func (r *RabbitMQ) initExchange(ch *amqp091.Channel) error {
 	return ch.ExchangeDeclare(
-		b.Config.Exchange,
+		r.Config.Exchange,
 		"topic",
 		true,
 		false,

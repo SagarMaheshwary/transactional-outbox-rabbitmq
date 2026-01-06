@@ -11,7 +11,7 @@ import (
 )
 
 type OrderService interface {
-	Create(ctx context.Context, row *model.Order) (*model.Order, error)
+	Create(ctx context.Context, req *CreateOrder) (*model.Order, error)
 }
 
 type orderService struct {
@@ -26,6 +26,11 @@ type OrderServiceOpts struct {
 	OutboxEventService OutboxEventService
 }
 
+type CreateOrder struct {
+	ProductID string
+	Quantity  int
+}
+
 func NewOrderService(opts *OrderServiceOpts) OrderService {
 	return &orderService{
 		db:                 opts.DB.DB(),
@@ -34,10 +39,14 @@ func NewOrderService(opts *OrderServiceOpts) OrderService {
 	}
 }
 
-func (o *orderService) Create(ctx context.Context, row *model.Order) (*model.Order, error) {
+func (o *orderService) Create(ctx context.Context, req *CreateOrder) (*model.Order, error) {
 	tx := o.db.Begin()
 
-	if err := tx.WithContext(ctx).Create(row).Error; err != nil {
+	order := &model.Order{
+		Status: "pending",
+	}
+
+	if err := tx.WithContext(ctx).Create(order).Error; err != nil {
 		tx.Rollback()
 		return nil, err
 	}
@@ -45,9 +54,9 @@ func (o *orderService) Create(ctx context.Context, row *model.Order) (*model.Ord
 	outboxEvent := &model.OutboxEvent{
 		EventKey: "order.created",
 		Payload: model.JSONB{
-			"id":      row.ID,
-			"user_id": row.UserID,
-			"amount":  row.Amount,
+			"id":         order.ID,
+			"product_id": req.ProductID,
+			"quantity":   req.Quantity,
 		},
 		Status: model.OutboxEventStatusPending,
 		ID:     uuid.NewString(),
@@ -61,5 +70,5 @@ func (o *orderService) Create(ctx context.Context, row *model.Order) (*model.Ord
 		return nil, err
 	}
 
-	return row, nil
+	return order, nil
 }

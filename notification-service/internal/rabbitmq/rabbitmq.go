@@ -13,10 +13,10 @@ import (
 type RabbitMQService interface {
 	Health() error
 	Close() error
-	Publish(ctx context.Context, ch *amqp091.Channel, routingKey string, message interface{}, messageID string) error
 	NewChannel() (*amqp091.Channel, error)
-	initExchange(ch *amqp091.Channel) error
+	Publish(ctx context.Context, ch *amqp091.Channel, routingKey string, message interface{}, messageID string) error
 	Consume(ctx context.Context, queue string, routingKeys []string) error
+	initExchange(ch *amqp091.Channel) error
 	connect(ctx context.Context) error
 }
 

@@ -11,7 +11,7 @@ import (
 )
 
 type ProcessedMessageService interface {
-	TryInsert(ctx context.Context, tx *gorm.DB, row *model.ProcessedMessage) (bool, error)
+	TryInsert(ctx context.Context, row *model.ProcessedMessage) (bool, error)
 }
 
 type processedMessageService struct {
@@ -31,12 +31,8 @@ func NewProcessedMessageService(opts *ProcessedMessageOpts) ProcessedMessageServ
 	}
 }
 
-func (p *processedMessageService) TryInsert(ctx context.Context, tx *gorm.DB, row *model.ProcessedMessage) (bool, error) {
-	if tx == nil {
-		tx = p.db
-	}
-
-	res := tx.WithContext(ctx).Clauses(clause.OnConflict{DoNothing: true}).Create(&row)
+func (p *processedMessageService) TryInsert(ctx context.Context, row *model.ProcessedMessage) (bool, error) {
+	res := p.db.WithContext(ctx).Clauses(clause.OnConflict{DoNothing: true}).Create(&row)
 	if res.Error != nil {
 		return false, res.Error
 	}

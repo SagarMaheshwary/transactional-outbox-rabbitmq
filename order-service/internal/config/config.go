@@ -24,14 +24,12 @@ type Database struct {
 }
 
 type AMQP struct {
-	Host                    string
-	Port                    int
-	Username                string
-	Password                string
-	PublishTimeout          time.Duration
-	ConnectionRetryInterval time.Duration
-	ConnectionRetryAttempts int
-	Exchange                string
+	Host           string
+	Port           int
+	Username       string
+	Password       string
+	PublishTimeout time.Duration
+	Exchange       string
 }
 
 type Outbox struct {
@@ -53,14 +51,12 @@ func NewConfig(envPath string) (*Config, error) {
 			DSN: getEnv("DATABASE_DSN", "postgres://postgres:password@order-db:5432/order-service?sslmode=disable"),
 		},
 		AMQP: &AMQP{
-			Host:                    getEnv("AMQP_HOST", "rabbitmq"),
-			Port:                    getEnvInt("AMQP_PORT", 5672),
-			Username:                getEnv("AMQP_USERNAME", "default"),
-			Password:                getEnv("AMQP_PASSWORD", "default"),
-			PublishTimeout:          getEnvDuration("AMQP_PUBLISH_TIMEOUT_SECONDS", time.Second*2),
-			ConnectionRetryInterval: getEnvDuration("AMQP_CONNECTION_RETRY_INTERVAL_SECONDS", time.Second*3),
-			ConnectionRetryAttempts: getEnvInt("AMQP_CONNECTION_RETRY_ATTEMPTS", 5),
-			Exchange:                getEnv("AMQP_EXCHANGE", "outbox.events"),
+			Host:           getEnv("AMQP_HOST", "rabbitmq"),
+			Port:           getEnvInt("AMQP_PORT", 5672),
+			Username:       getEnv("AMQP_USERNAME", "default"),
+			Password:       getEnv("AMQP_PASSWORD", "default"),
+			PublishTimeout: getEnvDuration("AMQP_PUBLISH_TIMEOUT_SECONDS", time.Second*2),
+			Exchange:       getEnv("AMQP_EXCHANGE", "outbox.events"),
 		},
 		Outbox: &Outbox{
 			MaxConcurrency: getEnvInt("AMQP_OUTBOX_MAX_CONCURRENCY", 10),

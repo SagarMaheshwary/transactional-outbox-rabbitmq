@@ -8,14 +8,14 @@ import (
 	"github.com/sagarmaheshwary/transactional-outbox-rabbitmq/order-service/internal/logger"
 )
 
-func (b *RabbitMQ) Publish(
+func (r *RabbitMQ) Publish(
 	ctx context.Context,
 	ch *amqp091.Channel,
 	routingKey string,
 	message interface{},
 	messageID string,
 ) error {
-	ctx, cancel := context.WithTimeout(ctx, b.Config.PublishTimeout)
+	ctx, cancel := context.WithTimeout(ctx, r.Config.PublishTimeout)
 	defer cancel()
 
 	messageData, err := json.Marshal(&message)
@@ -23,30 +23,29 @@ func (b *RabbitMQ) Publish(
 		return err
 	}
 
-	headers := amqp091.Table{}
-	headers["message_id"] = messageID
-
 	err = ch.PublishWithContext(
 		ctx,
-		b.Config.Exchange,
+		r.Config.Exchange,
 		routingKey,
 		false,
 		false,
 		amqp091.Publishing{
 			ContentType: "application/json",
 			Body:        messageData,
-			Headers:     headers,
+			Headers: amqp091.Table{
+				"message_id": messageID,
+			},
 		},
 	)
 	if err != nil {
-		b.Log.Error("RabbitMQ failed to publish message",
+		r.Log.Error("RabbitMQ failed to publish message",
 			logger.Field{Key: "routing_key", Value: routingKey},
 			logger.Field{Key: "error", Value: err.Error()},
 		)
 		return err
 	}
 
-	b.Log.Info("RabbitMQ message published", logger.Field{Key: "routing_key", Value: routingKey})
+	r.Log.Info("RabbitMQ message published", logger.Field{Key: "routing_key", Value: routingKey})
 
 	return nil
 }

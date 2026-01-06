@@ -12,10 +12,10 @@ import (
 type RabbitMQService interface {
 	Health() error
 	Close() error
-	Publish(ctx context.Context, ch *amqp091.Channel, routingKey string, message interface{}, messageID string) error
 	NewChannel() (*amqp091.Channel, error)
+	Publish(ctx context.Context, ch *amqp091.Channel, routingKey string, message interface{}, messageID string) error
 	initExchange(ch *amqp091.Channel) error
-	connect() error
+	connect(ctx context.Context) error
 }
 
 type RabbitMQ struct {
@@ -35,18 +35,18 @@ func NewRabbitMQ(ctx context.Context, opts *Opts) (RabbitMQService, error) {
 		Config: opts.Config,
 		Log:    opts.Logger,
 	}
-	if err := b.connect(); err != nil {
+	if err := b.connect(ctx); err != nil {
 		return nil, err
 	}
 
 	return b, nil
 }
 
-func (b *RabbitMQ) NewChannel() (*amqp091.Channel, error) {
-	c, err := b.Conn.Channel()
+func (r *RabbitMQ) NewChannel() (*amqp091.Channel, error) {
+	c, err := r.Conn.Channel()
 
 	if err != nil {
-		b.Log.Error("RabbitMQ channel error", logger.Field{Key: "error", Value: err.Error()})
+		r.Log.Error("RabbitMQ channel error", logger.Field{Key: "error", Value: err.Error()})
 		return nil, err
 	}
 

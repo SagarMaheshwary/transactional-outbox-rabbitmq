@@ -1,6 +1,7 @@
 package rabbitmq
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
@@ -8,40 +9,40 @@ import (
 	"github.com/sagarmaheshwary/transactional-outbox-rabbitmq/order-service/internal/logger"
 )
 
-func (b *RabbitMQ) Health() error {
-	if b.Conn == nil || b.Conn.IsClosed() {
+func (r *RabbitMQ) Health() error {
+	if r.Conn == nil || r.Conn.IsClosed() {
 		return errors.New("RabbitMQ healthcheck failed")
 	}
 
 	return nil
 }
 
-func (b *RabbitMQ) Close() error {
-	if b.Conn != nil && !b.Conn.IsClosed() {
-		return b.Conn.Close()
+func (r *RabbitMQ) Close() error {
+	if r.Conn != nil && !r.Conn.IsClosed() {
+		return r.Conn.Close()
 	}
 	return nil
 }
 
-func (b *RabbitMQ) connect() error {
+func (r *RabbitMQ) connect(ctx context.Context) error {
 	var err error
 
-	address := fmt.Sprintf("amqp://%s:%s@%s:%d", b.Config.Username, b.Config.Password, b.Config.Host, b.Config.Port)
-	b.Conn, err = amqp091.Dial(address)
+	address := fmt.Sprintf("amqp://%s:%s@%s:%d", r.Config.Username, r.Config.Password, r.Config.Host, r.Config.Port)
+	r.Conn, err = amqp091.Dial(address)
 	if err != nil {
-		b.Log.Error("RabbitMQ connection error", logger.Field{Key: "error", Value: err.Error()})
+		r.Log.Error("RabbitMQ connection error", logger.Field{Key: "error", Value: err.Error()})
 		return err
 	}
 
-	b.Log.Info("RabbitMQ connected")
+	r.Log.Info("RabbitMQ connected")
 
-	channel, err := b.NewChannel()
+	channel, err := r.NewChannel()
 	if err != nil {
 		return err
 	}
 	defer channel.Close()
 
-	if err := b.initExchange(channel); err != nil {
+	if err := r.initExchange(channel); err != nil {
 		return err
 	}
 

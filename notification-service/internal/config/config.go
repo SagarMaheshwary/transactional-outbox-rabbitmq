@@ -18,15 +18,13 @@ type Database struct {
 }
 
 type AMQP struct {
-	Host                    string
-	Port                    int
-	Username                string
-	Password                string
-	PublishTimeout          time.Duration
-	ConnectionRetryInterval time.Duration
-	ConnectionRetryAttempts int
-	Exchange                string
-	Queue                   string
+	Host           string
+	Port           int
+	Username       string
+	Password       string
+	PublishTimeout time.Duration
+	Exchange       string
+	Queue          string
 }
 
 func NewConfig(envPath string) (*Config, error) {
@@ -43,7 +41,7 @@ func NewConfig(envPath string) (*Config, error) {
 			Port:           getEnvInt("AMQP_PORT", 5672),
 			Username:       getEnv("AMQP_USERNAME", "default"),
 			Password:       getEnv("AMQP_PASSWORD", "default"),
-			PublishTimeout: getEnvDuration("AMQP_PUBLISH_TIMEOUT_SECONDS", time.Second*3),
+			PublishTimeout: getEnvDuration("AMQP_PUBLISH_TIMEOUT_SECONDS", time.Second*2),
 			Exchange:       getEnv("AMQP_EXCHANGE", "outbox.events"),
 			Queue:          getEnv("AMQP_QUEUE", "notification-service"),
 		},
