@@ -40,6 +40,7 @@ func main() {
 		Config:                  cfg.AMQP,
 		Logger:                  log,
 		ProcessedMessageService: processedMessageService,
+		DB:                      db,
 	})
 	if err != nil {
 		log.Fatal(err.Error())

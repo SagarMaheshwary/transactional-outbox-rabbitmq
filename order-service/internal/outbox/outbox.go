@@ -68,7 +68,7 @@ func (o *Outbox) Start(ctx context.Context, workerID string) {
 		}(i)
 	}
 
-	ticker := time.NewTicker(2 * time.Second)
+	ticker := time.NewTicker(o.config.Interval)
 	defer ticker.Stop()
 
 	for {

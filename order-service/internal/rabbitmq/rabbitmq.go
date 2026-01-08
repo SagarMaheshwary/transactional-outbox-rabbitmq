@@ -2,7 +2,6 @@ package rabbitmq
 
 import (
 	"context"
-	"sync"
 
 	"github.com/rabbitmq/amqp091-go"
 	"github.com/sagarmaheshwary/transactional-outbox-rabbitmq/order-service/internal/config"
@@ -19,10 +18,9 @@ type RabbitMQService interface {
 }
 
 type RabbitMQ struct {
-	Config        *config.AMQP
-	Conn          *amqp091.Connection
-	reconnectLock sync.Mutex
-	Log           logger.Logger
+	Config *config.AMQP
+	Conn   *amqp091.Connection
+	Log    logger.Logger
 }
 
 type Opts struct {

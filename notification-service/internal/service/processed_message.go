@@ -7,11 +7,10 @@ import (
 	"github.com/sagarmaheshwary/transactional-outbox-rabbitmq/notification-service/internal/database/model"
 	"github.com/sagarmaheshwary/transactional-outbox-rabbitmq/notification-service/internal/logger"
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 )
 
 type ProcessedMessageService interface {
-	TryInsert(ctx context.Context, row *model.ProcessedMessage) (bool, error)
+	TryInsert(ctx context.Context, tx *gorm.DB, row *model.ProcessedMessage) (bool, error)
 }
 
 type processedMessageService struct {
@@ -31,14 +30,27 @@ func NewProcessedMessageService(opts *ProcessedMessageOpts) ProcessedMessageServ
 	}
 }
 
-func (p *processedMessageService) TryInsert(ctx context.Context, row *model.ProcessedMessage) (bool, error) {
-	res := p.db.WithContext(ctx).Clauses(clause.OnConflict{DoNothing: true}).Create(&row)
+func (p *processedMessageService) TryInsert(
+	ctx context.Context,
+	tx *gorm.DB,
+	row *model.ProcessedMessage,
+) (bool, error) {
+
+	query := `
+		INSERT INTO processed_messages (message_id, processed_at)
+		VALUES (?, ?)
+		ON CONFLICT (message_id) DO NOTHING
+	`
+
+	res := tx.WithContext(ctx).Exec(
+		query,
+		row.MessageID,
+		row.ProcessedAt,
+	)
+
 	if res.Error != nil {
 		return false, res.Error
 	}
-	if res.RowsAffected == 0 {
-		return false, nil
-	}
 
-	return true, nil
+	return res.RowsAffected > 0, nil
 }

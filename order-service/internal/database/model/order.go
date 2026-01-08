@@ -6,5 +6,4 @@ type Order struct {
 	ID        uint      `gorm:"primaryKey" json:"id"`
 	Status    string    `gorm:"not null" json:"status"`
 	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
 }

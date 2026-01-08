@@ -55,28 +55,29 @@ func (o *outboxEventService) ClaimEvents(
 ) ([]*model.OutboxEvent, error) {
 	var events []*model.OutboxEvent
 
+	query := `
+		UPDATE outbox_events
+		SET
+			status = ?,
+			locked_at = NOW(),
+			locked_by = ?
+		WHERE id IN (
+			SELECT id
+			FROM outbox_events
+			WHERE
+					status = ?
+					OR (
+						status = ?
+						AND locked_at < NOW() - INTERVAL '30 seconds'
+					)
+			ORDER BY created_at
+			LIMIT ?
+			FOR UPDATE SKIP LOCKED
+		)
+		RETURNING *`
+
 	err := o.db.WithContext(ctx).
-		Raw(`
-        UPDATE outbox_events
-        SET
-					status = ?,
-					locked_at = NOW(),
-					locked_by = ?
-        WHERE id IN (
-					SELECT id
-					FROM outbox_events
-					WHERE
-							status = ?
-							OR (
-								status = ?
-								AND locked_at < NOW() - INTERVAL '30 seconds'
-							)
-						
-					ORDER BY created_at
-					LIMIT ?
-					FOR UPDATE SKIP LOCKED
-        )
-        RETURNING *`,
+		Raw(query,
 			model.OutboxEventStatusInProgress,
 			workerID,
 			model.OutboxEventStatusPending,

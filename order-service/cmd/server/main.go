@@ -64,6 +64,7 @@ func main() {
 
 	httpServer := httpserver.NewServer(cfg.HTTPServer.URL, &httpserver.Opts{
 		OrderService: orderService,
+		Log:          log,
 	})
 	go func() {
 		err = httpServer.Serve()

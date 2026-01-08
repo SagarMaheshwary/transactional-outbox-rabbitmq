@@ -50,7 +50,6 @@ func (o *Outbox) markPublished(ctx context.Context, event *model.OutboxEvent) {
 	})
 	if err != nil {
 		o.log.Error("Failed to update event status to Published", logger.Field{Key: "error", Value: err.Error()})
-		return
 	}
 }
 
@@ -64,6 +63,5 @@ func (o *Outbox) markFailed(ctx context.Context, event *model.OutboxEvent, procE
 	})
 	if err != nil {
 		o.log.Error("Failed to update event status to Failed", logger.Field{Key: "error", Value: err.Error()})
-		return
 	}
 }

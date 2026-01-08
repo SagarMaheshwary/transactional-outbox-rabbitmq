@@ -19,6 +19,8 @@ type CreateOrderRequest struct {
 }
 
 func (o *OrderHandler) Create(c *gin.Context) {
+	o.Log.Info("Create Order Request Arrived")
+
 	var req CreateOrderRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})

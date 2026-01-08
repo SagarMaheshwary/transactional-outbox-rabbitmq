@@ -6,6 +6,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/sagarmaheshwary/transactional-outbox-rabbitmq/order-service/internal/http/handler"
+	"github.com/sagarmaheshwary/transactional-outbox-rabbitmq/order-service/internal/logger"
 	"github.com/sagarmaheshwary/transactional-outbox-rabbitmq/order-service/internal/service"
 )
 
@@ -16,6 +17,7 @@ type HTTPServer struct {
 
 type Opts struct {
 	OrderService service.OrderService
+	Log          logger.Logger
 }
 
 func NewServer(url string, opts *Opts) *HTTPServer {
@@ -24,6 +26,7 @@ func NewServer(url string, opts *Opts) *HTTPServer {
 
 	orderHandler := handler.OrderHandler{
 		OrderService: opts.OrderService,
+		Log:          opts.Log,
 	}
 
 	r.POST("/orders", orderHandler.Create)

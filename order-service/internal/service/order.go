@@ -39,19 +39,32 @@ func NewOrderService(opts *OrderServiceOpts) OrderService {
 	}
 }
 
-func (o *orderService) Create(ctx context.Context, req *CreateOrder) (*model.Order, error) {
-	tx := o.db.Begin()
+func (o *orderService) Create(ctx context.Context, req *CreateOrder) (order *model.Order, err error) {
+	tx := o.db.WithContext(ctx).Begin()
+	if tx.Error != nil {
+		return nil, tx.Error
+	}
 
-	order := &model.Order{
+	defer func() {
+		if p := recover(); p != nil {
+			tx.Rollback()
+			panic(p)
+		}
+		if err != nil {
+			tx.Rollback()
+		}
+	}()
+
+	order = &model.Order{
 		Status: "pending",
 	}
 
-	if err := tx.WithContext(ctx).Create(order).Error; err != nil {
-		tx.Rollback()
+	if err = tx.Create(order).Error; err != nil {
 		return nil, err
 	}
 
 	outboxEvent := &model.OutboxEvent{
+		ID:       uuid.NewString(),
 		EventKey: "order.created",
 		Payload: model.JSONB{
 			"id":         order.ID,
@@ -59,14 +72,13 @@ func (o *orderService) Create(ctx context.Context, req *CreateOrder) (*model.Ord
 			"quantity":   req.Quantity,
 		},
 		Status: model.OutboxEventStatusPending,
-		ID:     uuid.NewString(),
 	}
-	if err := o.outboxEventService.Create(ctx, tx, outboxEvent); err != nil {
-		tx.Rollback()
+
+	if err = o.outboxEventService.Create(ctx, tx, outboxEvent); err != nil {
 		return nil, err
 	}
 
-	if err := tx.Commit().Error; err != nil {
+	if err = tx.Commit().Error; err != nil {
 		return nil, err
 	}
 

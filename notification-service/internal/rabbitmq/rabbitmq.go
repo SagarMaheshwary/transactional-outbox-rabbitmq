@@ -2,12 +2,13 @@ package rabbitmq
 
 import (
 	"context"
-	"sync"
 
 	"github.com/rabbitmq/amqp091-go"
 	"github.com/sagarmaheshwary/transactional-outbox-rabbitmq/notification-service/internal/config"
+	"github.com/sagarmaheshwary/transactional-outbox-rabbitmq/notification-service/internal/database"
 	"github.com/sagarmaheshwary/transactional-outbox-rabbitmq/notification-service/internal/logger"
 	"github.com/sagarmaheshwary/transactional-outbox-rabbitmq/notification-service/internal/service"
+	"gorm.io/gorm"
 )
 
 type RabbitMQService interface {
@@ -23,15 +24,16 @@ type RabbitMQService interface {
 type RabbitMQ struct {
 	Config                  *config.AMQP
 	Conn                    *amqp091.Connection
-	reconnectLock           sync.Mutex
 	Log                     logger.Logger
 	ProcessedMessageService service.ProcessedMessageService
+	DB                      *gorm.DB
 }
 
 type Opts struct {
 	Config                  *config.AMQP
 	Logger                  logger.Logger
 	ProcessedMessageService service.ProcessedMessageService
+	DB                      database.DatabaseService
 }
 
 func NewRabbitMQ(ctx context.Context, opts *Opts) (RabbitMQService, error) {
@@ -39,6 +41,7 @@ func NewRabbitMQ(ctx context.Context, opts *Opts) (RabbitMQService, error) {
 		Config:                  opts.Config,
 		Log:                     opts.Logger,
 		ProcessedMessageService: opts.ProcessedMessageService,
+		DB:                      opts.DB.DB(),
 	}
 	if err := b.connect(ctx); err != nil {
 		return nil, err

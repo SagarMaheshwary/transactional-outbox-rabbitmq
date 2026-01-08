@@ -77,9 +77,9 @@ func (r *RabbitMQ) processMessages(ctx context.Context, messages <-chan amqp091.
 	}
 }
 
-func (r *RabbitMQ) handleMessage(ctx context.Context, message amqp091.Delivery) error {
+func (r *RabbitMQ) handleMessage(ctx context.Context, message amqp091.Delivery) (err error) {
 	var body map[string]any
-	if err := json.Unmarshal(message.Body, &body); err != nil {
+	if err = json.Unmarshal(message.Body, &body); err != nil {
 		return err
 	}
 
@@ -88,8 +88,22 @@ func (r *RabbitMQ) handleMessage(ctx context.Context, message amqp091.Delivery) 
 		return errors.New("invalid message id")
 	}
 
-	// Try insert into processed_messages to ensure exactly-once processing
-	inserted, err := r.ProcessedMessageService.TryInsert(ctx, &model.ProcessedMessage{
+	tx := r.DB.WithContext(ctx).Begin()
+	if tx.Error != nil {
+		return tx.Error
+	}
+
+	defer func() {
+		if p := recover(); p != nil {
+			tx.Rollback()
+			panic(p)
+		}
+		if err != nil {
+			tx.Rollback()
+		}
+	}()
+
+	inserted, err := r.ProcessedMessageService.TryInsert(ctx, tx, &model.ProcessedMessage{
 		MessageID:   messageID,
 		ProcessedAt: time.Now(),
 	})
@@ -97,12 +111,16 @@ func (r *RabbitMQ) handleMessage(ctx context.Context, message amqp091.Delivery) 
 		return err
 	}
 
-	// If not inserted, message was already processed, skip
 	if !inserted {
-		return nil
+		// If the message has already been processed, we still commit the transaction to leave
+		// the database in a clean, consistent state before acknowledging the message.
+		return tx.Commit().Error
 	}
 
-	r.Log.Info("Order email sent to customer", logger.Field{Key: "payload", Value: body})
+	r.Log.Info(
+		"Order email sent to customer",
+		logger.Field{Key: "payload", Value: body},
+	)
 
-	return nil
+	return tx.Commit().Error
 }
