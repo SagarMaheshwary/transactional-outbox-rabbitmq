@@ -35,7 +35,7 @@ The system consists of two services and a shared broker:
 
 **Each service owns its own database schema. There is no shared database.**
 
-![Outbox Highlevel Diagram](image.png)
+![Outbox Highlevel Diagram](./assets/outbox-architecture-diagram.png)
 
 ## Running Locally with Docker Compose
 
