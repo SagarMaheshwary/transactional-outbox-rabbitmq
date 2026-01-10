@@ -17,6 +17,7 @@ CREATE TABLE
     locked_by VARCHAR(128) NULL,
     failure_reason VARCHAR(128) DEFAULT NULL,
     failed_at TIMESTAMP DEFAULT NULL,
+    traceparent TEXT NOT NULL,
     created_at TIMESTAMP DEFAULT NOW ()
   );
 

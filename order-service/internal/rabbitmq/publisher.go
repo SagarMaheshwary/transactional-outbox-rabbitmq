@@ -23,6 +23,9 @@ func (r *RabbitMQ) Publish(
 		return err
 	}
 
+	headers := headersWithTraceContext(ctx)
+	headers["message_id"] = messageID
+
 	err = ch.PublishWithContext(
 		ctx,
 		r.Config.Exchange,
@@ -32,9 +35,7 @@ func (r *RabbitMQ) Publish(
 		amqp091.Publishing{
 			ContentType: "application/json",
 			Body:        messageData,
-			Headers: amqp091.Table{
-				"message_id": messageID,
-			},
+			Headers:     headers,
 		},
 	)
 	if err != nil {

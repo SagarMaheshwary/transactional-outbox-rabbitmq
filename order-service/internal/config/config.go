@@ -13,6 +13,8 @@ type Config struct {
 	Database   *Database
 	AMQP       *AMQP
 	Outbox     *Outbox
+	Metrics    *Metrics
+	Tracing    *Tracing
 }
 
 type HTTPServer struct {
@@ -33,9 +35,19 @@ type AMQP struct {
 }
 
 type Outbox struct {
-	Interval       time.Duration
-	MaxConcurrency int
-	BatchSize      int
+	Interval              time.Duration
+	MaxConcurrency        int
+	BatchSize             int
+	BacklogReportInterval time.Duration
+}
+
+type Metrics struct {
+	EnableDefaultMetrics bool
+}
+
+type Tracing struct {
+	ServiceName  string `validate:"required"`
+	CollectorURL string `validate:"required,hostname_port"`
 }
 
 func NewConfig(envPath string) (*Config, error) {
@@ -59,9 +71,17 @@ func NewConfig(envPath string) (*Config, error) {
 			Exchange:       getEnv("AMQP_EXCHANGE", "outbox.events"),
 		},
 		Outbox: &Outbox{
-			MaxConcurrency: getEnvInt("AMQP_OUTBOX_MAX_CONCURRENCY", 10),
-			BatchSize:      getEnvInt("AMQP_OUTBOX_BATCH_SIZE", 100),
-			Interval:       getEnvDuration("OUTBOX_POLLING_INTERVAL", 2*time.Second),
+			MaxConcurrency:        getEnvInt("AMQP_OUTBOX_MAX_CONCURRENCY", 10),
+			BatchSize:             getEnvInt("AMQP_OUTBOX_BATCH_SIZE", 100),
+			Interval:              getEnvDuration("OUTBOX_POLLING_INTERVAL", 2*time.Second),
+			BacklogReportInterval: getEnvDuration("OUTBOX_BACKLOG_REPORT_INTERVAL", 10*time.Second),
+		},
+		Metrics: &Metrics{
+			EnableDefaultMetrics: getEnvBool("METRICS_ENABLE_DEFAULT_METRICS", false),
+		},
+		Tracing: &Tracing{
+			ServiceName:  getEnv("TRACING_SERVICE_NAME", "order-service"),
+			CollectorURL: getEnv("TRACING_COLLECTOR_URL", "jaeger:4318"),
 		},
 	}
 
@@ -86,6 +106,14 @@ func getEnvInt(key string, defaultVal int) int {
 
 func getEnvDuration(key string, defaultVal time.Duration) time.Duration {
 	if val, err := time.ParseDuration(os.Getenv(key)); err == nil {
+		return val
+	}
+
+	return defaultVal
+}
+
+func getEnvBool(key string, defaultVal bool) bool {
+	if val, err := strconv.ParseBool(os.Getenv(key)); err == nil {
 		return val
 	}
 

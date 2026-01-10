@@ -1,0 +1,17 @@
+global:
+  scrape_interval: 5s
+
+scrape_configs:
+  - job_name: notification-service
+    static_configs:
+      - targets:
+          - "notification-service:4000"
+        labels:
+          service: "notification-service"
+
+  - job_name: order-service
+    static_configs:
+      - targets:
+          - "order-service:4000"
+        labels:
+          service: "order-service"

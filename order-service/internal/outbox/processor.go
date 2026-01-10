@@ -7,6 +7,10 @@ import (
 	"github.com/rabbitmq/amqp091-go"
 	"github.com/sagarmaheshwary/transactional-outbox-rabbitmq/order-service/internal/database/model"
 	"github.com/sagarmaheshwary/transactional-outbox-rabbitmq/order-service/internal/logger"
+	"github.com/sagarmaheshwary/transactional-outbox-rabbitmq/order-service/internal/observability/metrics"
+	"github.com/sagarmaheshwary/transactional-outbox-rabbitmq/order-service/internal/observability/tracing"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 )
 
 func (o *Outbox) processEvents(
@@ -32,12 +36,44 @@ func (o *Outbox) processEvents(
 	}
 }
 
-func (o *Outbox) PublishEvent(ctx context.Context, ch *amqp091.Channel, event *model.OutboxEvent) error {
-	err := o.rabbitmq.Publish(ctx, ch, event.EventKey, event.Payload, event.ID)
+func (o *Outbox) PublishEvent(
+	ctx context.Context,
+	ch *amqp091.Channel,
+	event *model.OutboxEvent,
+) error {
+	if event.Traceparent != "" {
+		ctx = tracing.ExtractTraceParent(ctx, event.Traceparent)
+	}
+
+	ctx, span := tracing.Tracer.Start(
+		ctx,
+		"Outbox.PublishEvent",
+		trace.WithAttributes(
+			attribute.String("event.id", event.ID),
+			attribute.String("event.key", event.EventKey),
+		),
+	)
+	defer span.End()
+
+	err := o.rabbitmq.Publish(
+		ctx,
+		ch,
+		event.EventKey,
+		event.Payload,
+		event.ID,
+	)
 	if err != nil {
-		o.log.Error("Failed to publish event", logger.Field{Key: "error", Value: err.Error()})
+		span.RecordError(err)
+		metrics.OutboxEventsTotal.WithLabelValues("failed").Inc()
+		o.log.Error("Failed to publish event",
+			logger.Field{Key: "error", Value: err.Error()},
+		)
 		return err
 	}
+
+	latency := time.Since(event.CreatedAt).Seconds()
+	metrics.OutboxPublishLatency.Observe(latency)
+	metrics.OutboxEventsTotal.WithLabelValues("published").Inc()
 
 	return nil
 }
@@ -53,7 +89,11 @@ func (o *Outbox) markPublished(ctx context.Context, event *model.OutboxEvent) {
 	}
 }
 
-func (o *Outbox) markFailed(ctx context.Context, event *model.OutboxEvent, procErr error) {
+func (o *Outbox) markFailed(
+	ctx context.Context,
+	event *model.OutboxEvent,
+	procErr error,
+) {
 	err := o.outboxEventService.UpdateState(ctx, event.ID, map[string]interface{}{
 		"status":         model.OutboxEventStatusFailed,
 		"failure_reason": procErr.Error(),

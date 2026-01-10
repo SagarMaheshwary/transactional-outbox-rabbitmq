@@ -5,12 +5,11 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/sagarmaheshwary/transactional-outbox-rabbitmq/order-service/internal/config"
-	"github.com/sagarmaheshwary/transactional-outbox-rabbitmq/order-service/internal/http/handler"
-	"github.com/sagarmaheshwary/transactional-outbox-rabbitmq/order-service/internal/logger"
-	"github.com/sagarmaheshwary/transactional-outbox-rabbitmq/order-service/internal/observability/metrics"
-	"github.com/sagarmaheshwary/transactional-outbox-rabbitmq/order-service/internal/service"
-	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
+	"github.com/sagarmaheshwary/transactional-outbox-rabbitmq/notification-service/internal/config"
+	"github.com/sagarmaheshwary/transactional-outbox-rabbitmq/notification-service/internal/http/handler"
+	"github.com/sagarmaheshwary/transactional-outbox-rabbitmq/notification-service/internal/logger"
+	"github.com/sagarmaheshwary/transactional-outbox-rabbitmq/notification-service/internal/observability/metrics"
+	"github.com/sagarmaheshwary/transactional-outbox-rabbitmq/notification-service/internal/service"
 )
 
 type HTTPServer struct {
@@ -19,30 +18,24 @@ type HTTPServer struct {
 }
 
 type Opts struct {
-	OrderService   service.OrderService
 	Log            logger.Logger
-	MetricsService metrics.MetricsService
 	Config         *config.Config
+	MetricsService metrics.MetricsService
 	HealthService  service.HealthService
 }
 
 func NewServer(url string, opts *Opts) *HTTPServer {
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.New()
-	r.Use(
-		otelgin.Middleware(opts.Config.Tracing.ServiceName),
-	)
+	// r.Use(
+	// 	otelgin.Middleware(opts.Config.Tracing.ServiceName),
+	// )
 
-	orderHandler := handler.OrderHandler{
-		OrderService: opts.OrderService,
-		Log:          opts.Log,
-	}
 	healthHandler := handler.NewHealthHandler(&handler.HealthHandlerOpts{
 		HealthService: opts.HealthService,
 		Logger:        opts.Log,
 	})
 
-	r.POST("/orders", orderHandler.Create)
 	r.GET("/metrics", gin.WrapH(opts.MetricsService.Handler()))
 	r.GET("/livez", healthHandler.Livez)
 	r.GET("/readyz", healthHandler.Readyz)

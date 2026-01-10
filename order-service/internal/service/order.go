@@ -7,6 +7,9 @@ import (
 	"github.com/sagarmaheshwary/transactional-outbox-rabbitmq/order-service/internal/database"
 	"github.com/sagarmaheshwary/transactional-outbox-rabbitmq/order-service/internal/database/model"
 	"github.com/sagarmaheshwary/transactional-outbox-rabbitmq/order-service/internal/logger"
+	"github.com/sagarmaheshwary/transactional-outbox-rabbitmq/order-service/internal/observability/tracing"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/propagation"
 	"gorm.io/gorm"
 )
 
@@ -39,46 +42,48 @@ func NewOrderService(opts *OrderServiceOpts) OrderService {
 	}
 }
 
-func (o *orderService) Create(ctx context.Context, req *CreateOrder) (order *model.Order, err error) {
-	tx := o.db.WithContext(ctx).Begin()
-	if tx.Error != nil {
-		return nil, tx.Error
-	}
+func (o *orderService) Create(
+	ctx context.Context,
+	req *CreateOrder,
+) (*model.Order, error) {
+	ctx, span := tracing.Tracer.Start(ctx, "OrderService.Create")
+	defer span.End()
 
-	defer func() {
-		if p := recover(); p != nil {
-			tx.Rollback()
-			panic(p)
+	var order *model.Order
+
+	err := withTransaction(ctx, o.db, func(tx *gorm.DB) error {
+		order = &model.Order{
+			Status: "pending",
 		}
-		if err != nil {
-			tx.Rollback()
+
+		if err := tx.Create(order).Error; err != nil {
+			return err
 		}
-	}()
 
-	order = &model.Order{
-		Status: "pending",
-	}
+		carrier := propagation.MapCarrier{}
+		otel.GetTextMapPropagator().Inject(ctx, carrier)
 
-	if err = tx.Create(order).Error; err != nil {
-		return nil, err
-	}
+		outboxEvent := &model.OutboxEvent{
+			ID:       uuid.NewString(),
+			EventKey: "order.created",
+			Payload: model.JSONB{
+				"id":         order.ID,
+				"product_id": req.ProductID,
+				"quantity":   req.Quantity,
+			},
+			Status:      model.OutboxEventStatusPending,
+			Traceparent: carrier["traceparent"],
+		}
 
-	outboxEvent := &model.OutboxEvent{
-		ID:       uuid.NewString(),
-		EventKey: "order.created",
-		Payload: model.JSONB{
-			"id":         order.ID,
-			"product_id": req.ProductID,
-			"quantity":   req.Quantity,
-		},
-		Status: model.OutboxEventStatusPending,
-	}
+		if err := o.outboxEventService.Create(ctx, tx, outboxEvent); err != nil {
+			return err
+		}
 
-	if err = o.outboxEventService.Create(ctx, tx, outboxEvent); err != nil {
-		return nil, err
-	}
+		return nil
+	})
 
-	if err = tx.Commit().Error; err != nil {
+	if err != nil {
+		span.RecordError(err)
 		return nil, err
 	}
 

@@ -8,13 +8,14 @@ import (
 )
 
 type OutboxEvent struct {
-	ID        string    `gorm:"primaryKey" json:"id"`
-	EventKey  string    `gorm:"not null" json:"event_key"`
-	Payload   JSONB     `gorm:"type:jsonb;not null" json:"payload"`
-	Status    string    `gorm:"not null" json:"status"`
-	LockedAt  time.Time `json:"locked_at"`
-	LockedBy  string    `json:"locked_by"`
-	CreatedAt time.Time `json:"created_at"`
+	ID          string    `gorm:"primaryKey" json:"id"`
+	EventKey    string    `gorm:"not null" json:"event_key"`
+	Payload     JSONB     `gorm:"type:jsonb;not null" json:"payload"`
+	Status      string    `gorm:"not null" json:"status"`
+	LockedAt    time.Time `json:"locked_at"`
+	LockedBy    string    `json:"locked_by"`
+	Traceparent string    `json:"traceparent"`
+	CreatedAt   time.Time `json:"created_at"`
 }
 
 type JSONB map[string]interface{}

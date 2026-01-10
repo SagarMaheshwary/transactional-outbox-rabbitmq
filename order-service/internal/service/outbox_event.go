@@ -13,6 +13,7 @@ type OutboxEventService interface {
 	Create(ctx context.Context, tx *gorm.DB, row *model.OutboxEvent) error
 	UpdateState(ctx context.Context, eventID string, update map[string]interface{}) error
 	ClaimEvents(ctx context.Context, workerID string, limit int) ([]*model.OutboxEvent, error)
+	CountBacklog(ctx context.Context) (int64, error)
 }
 
 type outboxEventService struct {
@@ -87,4 +88,24 @@ func (o *outboxEventService) ClaimEvents(
 		Scan(&events).Error
 
 	return events, err
+}
+
+func (o *outboxEventService) CountBacklog(ctx context.Context) (int64, error) {
+	var count int64
+
+	err := o.db.WithContext(ctx).
+		Model(&model.OutboxEvent{}).
+		Where(`
+			status = ?
+			OR (
+				status = ?
+				AND locked_at < NOW() - INTERVAL '30 seconds'
+			)
+		`,
+			model.OutboxEventStatusPending,
+			model.OutboxEventStatusInProgress,
+		).
+		Count(&count).Error
+
+	return count, err
 }
