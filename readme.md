@@ -180,6 +180,8 @@ Each service is intentionally structured similarly to reduce cognitive load.
 
 - Retrying outbox publishing and designing Dead Letter Queues (DLQs)
 - Consumer-side retries using dead-letter exchanges
+- Operational metrics and dashboards that surface failure modes early
+- and more...
 
 ## Support & Contributions
 
