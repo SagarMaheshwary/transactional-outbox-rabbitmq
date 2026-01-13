@@ -32,6 +32,8 @@ type AMQP struct {
 	Password       string
 	PublishTimeout time.Duration
 	Exchange       string
+	DLX            string
+	DLQ            string
 }
 
 type Outbox struct {
@@ -39,6 +41,8 @@ type Outbox struct {
 	MaxConcurrency        int
 	BatchSize             int
 	BacklogReportInterval time.Duration
+	MaxRetryCount         int
+	RetryDelay            time.Duration
 }
 
 type Metrics struct {
@@ -67,14 +71,18 @@ func NewConfig(envPath string) (*Config, error) {
 			Port:           getEnvInt("AMQP_PORT", 5672),
 			Username:       getEnv("AMQP_USERNAME", "default"),
 			Password:       getEnv("AMQP_PASSWORD", "default"),
-			PublishTimeout: getEnvDuration("AMQP_PUBLISH_TIMEOUT_SECONDS", time.Second*2),
+			PublishTimeout: getEnvDuration("AMQP_PUBLISH_TIMEOUT", time.Second*2),
 			Exchange:       getEnv("AMQP_EXCHANGE", "outbox.events"),
+			DLX:            getEnv("AMQP_DLX", "outbox.dlx"),
+			DLQ:            getEnv("AMQP_DLQ", "outbox.dlq.order-service"),
 		},
 		Outbox: &Outbox{
 			MaxConcurrency:        getEnvInt("AMQP_OUTBOX_MAX_CONCURRENCY", 10),
 			BatchSize:             getEnvInt("AMQP_OUTBOX_BATCH_SIZE", 100),
 			Interval:              getEnvDuration("OUTBOX_POLLING_INTERVAL", 2*time.Second),
 			BacklogReportInterval: getEnvDuration("OUTBOX_BACKLOG_REPORT_INTERVAL", 10*time.Second),
+			MaxRetryCount:         getEnvInt("OUTBOX_MAX_RETRY_COUNT", 3),
+			RetryDelay:            getEnvDuration("OUTBOX_RETRY_DELAY", 3*time.Second),
 		},
 		Metrics: &Metrics{
 			EnableDefaultMetrics: getEnvBool("METRICS_ENABLE_DEFAULT_METRICS", false),

@@ -63,17 +63,23 @@ func (o *outboxEventService) ClaimEvents(
 			locked_at = NOW(),
 			locked_by = ?
 		WHERE id IN (
-			SELECT id
-			FROM outbox_events
-			WHERE
-					status = ?
-					OR (
+				SELECT id
+				FROM outbox_events
+				WHERE
+					(
 						status = ?
-						AND locked_at < NOW() - INTERVAL '30 seconds'
+						OR (
+							status = ?
+							AND locked_at < NOW() - INTERVAL '30 seconds'
+						)
 					)
-			ORDER BY created_at
-			LIMIT ?
-			FOR UPDATE SKIP LOCKED
+					AND (
+						next_retry_at IS NULL
+						OR next_retry_at <= NOW()
+					)
+				ORDER BY created_at
+				LIMIT ?
+				FOR UPDATE SKIP LOCKED
 		)
 		RETURNING *`
 
@@ -96,12 +102,17 @@ func (o *outboxEventService) CountBacklog(ctx context.Context) (int64, error) {
 	err := o.db.WithContext(ctx).
 		Model(&model.OutboxEvent{}).
 		Where(`
-			status = ?
-			OR (
+			(
 				status = ?
-				AND locked_at < NOW() - INTERVAL '30 seconds'
+				OR (
+					status = ?
+					AND locked_at < NOW() - INTERVAL '30 seconds'
+				)
 			)
-		`,
+			AND (
+				next_retry_at IS NULL
+				OR next_retry_at <= NOW()
+			)`,
 			model.OutboxEventStatusPending,
 			model.OutboxEventStatusInProgress,
 		).

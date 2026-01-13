@@ -16,6 +16,10 @@ import (
 	"gorm.io/gorm"
 )
 
+type OutboxService interface {
+	Start(ctx context.Context, workerID string)
+}
+
 type Outbox struct {
 	db                 *gorm.DB
 	log                logger.Logger
@@ -23,6 +27,7 @@ type Outbox struct {
 	rabbitmq           rabbitmq.RabbitMQService
 	channels           []*amqp091.Channel
 	config             *config.Outbox
+	amqpConfig         *config.AMQP
 }
 
 type Opts struct {
@@ -31,6 +36,7 @@ type Opts struct {
 	OutboxEventService service.OutboxEventService
 	RabbitMQ           rabbitmq.RabbitMQService
 	Config             *config.Outbox
+	AMQPConfig         *config.AMQP
 }
 
 func NewOutbox(ctx context.Context, opts *Opts) Outbox {
@@ -40,6 +46,7 @@ func NewOutbox(ctx context.Context, opts *Opts) Outbox {
 		outboxEventService: opts.OutboxEventService,
 		rabbitmq:           opts.RabbitMQ,
 		config:             opts.Config,
+		amqpConfig:         opts.AMQPConfig,
 	}
 
 	hostname, _ := os.Hostname()

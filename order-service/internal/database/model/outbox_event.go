@@ -8,14 +8,18 @@ import (
 )
 
 type OutboxEvent struct {
-	ID          string    `gorm:"primaryKey" json:"id"`
-	EventKey    string    `gorm:"not null" json:"event_key"`
-	Payload     JSONB     `gorm:"type:jsonb;not null" json:"payload"`
-	Status      string    `gorm:"not null" json:"status"`
-	LockedAt    time.Time `json:"locked_at"`
-	LockedBy    string    `json:"locked_by"`
-	Traceparent string    `json:"traceparent"`
-	CreatedAt   time.Time `json:"created_at"`
+	ID            string    `gorm:"primaryKey" json:"id"`
+	EventKey      string    `gorm:"not null" json:"event_key"`
+	Payload       JSONB     `gorm:"type:jsonb;not null" json:"payload"`
+	Status        string    `gorm:"not null" json:"status"`
+	RetryCount    int       `json:"retry_count"`
+	NextRetryAt   time.Time `json:"next_retry_at"`
+	LockedAt      time.Time `json:"locked_at"`
+	LockedBy      string    `json:"locked_by"`
+	Traceparent   string    `json:"traceparent"` // Otel traceparent header
+	FailureReason string    `json:"failure_reason"`
+	FailedAt      time.Time `json:"failed_at"`
+	CreatedAt     time.Time `json:"created_at"`
 }
 
 type JSONB map[string]interface{}

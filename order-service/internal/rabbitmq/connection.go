@@ -45,6 +45,9 @@ func (r *RabbitMQ) connect(ctx context.Context) error {
 	if err := r.initExchange(channel); err != nil {
 		return err
 	}
+	if err := r.initDLQQueue(channel); err != nil {
+		return err
+	}
 
 	return nil
 }

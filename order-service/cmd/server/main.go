@@ -38,6 +38,14 @@ func main() {
 		log.Fatal(err.Error())
 	}
 
+	tracerService, err := tracing.NewTracerService(ctx, &tracing.Opts{
+		Config: cfg.Tracing,
+		Logger: log,
+	})
+	if err != nil {
+		log.Fatal(err.Error())
+	}
+
 	rmq, err := rabbitmq.NewRabbitMQ(ctx, &rabbitmq.Opts{
 		Config: cfg.AMQP,
 		Logger: log,
@@ -72,15 +80,8 @@ func main() {
 		OutboxEventService: outboxEventService,
 		RabbitMQ:           rmq,
 		Config:             cfg.Outbox,
+		AMQPConfig:         cfg.AMQP,
 	})
-
-	tracerService, err := tracing.NewTracerService(ctx, &tracing.Opts{
-		Config: cfg.Tracing,
-		Logger: log,
-	})
-	if err != nil {
-		log.Fatal(err.Error())
-	}
 
 	metricsService := metrics.NewMetricsService(cfg.Metrics, &metrics.OutboxEventMetrics{})
 

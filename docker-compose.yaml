@@ -13,6 +13,8 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
+      jaeger:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:4000/readyz"]
       interval: 5s
@@ -32,6 +34,8 @@ services:
       notification-db:
         condition: service_healthy
       rabbitmq:
+        condition: service_healthy
+      jaeger:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:4000/readyz"]

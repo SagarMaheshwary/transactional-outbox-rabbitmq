@@ -12,9 +12,7 @@ type RabbitMQService interface {
 	Health() error
 	Close() error
 	NewChannel() (*amqp091.Channel, error)
-	Publish(ctx context.Context, ch *amqp091.Channel, routingKey string, message interface{}, messageID string) error
-	initExchange(ch *amqp091.Channel) error
-	connect(ctx context.Context) error
+	Publish(ctx context.Context, opts *PublishOpts) error
 }
 
 type RabbitMQ struct {

@@ -9,6 +9,7 @@ import (
 	"github.com/sagarmaheshwary/transactional-outbox-rabbitmq/order-service/internal/logger"
 	"github.com/sagarmaheshwary/transactional-outbox-rabbitmq/order-service/internal/observability/metrics"
 	"github.com/sagarmaheshwary/transactional-outbox-rabbitmq/order-service/internal/observability/tracing"
+	"github.com/sagarmaheshwary/transactional-outbox-rabbitmq/order-service/internal/rabbitmq"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 )
@@ -32,7 +33,7 @@ func (o *Outbox) processEvents(
 			continue
 		}
 
-		o.markFailed(ctx, event, err)
+		o.handleFailure(ctx, ch, event, err)
 	}
 }
 
@@ -57,17 +58,17 @@ func (o *Outbox) PublishEvent(
 
 	err := o.rabbitmq.Publish(
 		ctx,
-		ch,
-		event.EventKey,
-		event.Payload,
-		event.ID,
+		&rabbitmq.PublishOpts{
+			Ch:         ch,
+			Exchange:   o.amqpConfig.Exchange,
+			RoutingKey: event.EventKey,
+			Body:       event.Payload,
+			Headers:    amqp091.Table{"message_id": event.ID},
+		},
 	)
 	if err != nil {
 		span.RecordError(err)
 		metrics.OutboxEventsTotal.WithLabelValues("failed").Inc()
-		o.log.Error("Failed to publish event",
-			logger.Field{Key: "error", Value: err.Error()},
-		)
 		return err
 	}
 
@@ -86,22 +87,5 @@ func (o *Outbox) markPublished(ctx context.Context, event *model.OutboxEvent) {
 	})
 	if err != nil {
 		o.log.Error("Failed to update event status to Published", logger.Field{Key: "error", Value: err.Error()})
-	}
-}
-
-func (o *Outbox) markFailed(
-	ctx context.Context,
-	event *model.OutboxEvent,
-	procErr error,
-) {
-	err := o.outboxEventService.UpdateState(ctx, event.ID, map[string]interface{}{
-		"status":         model.OutboxEventStatusFailed,
-		"failure_reason": procErr.Error(),
-		"failed_at":      time.Now(),
-		"locked_at":      nil,
-		"locked_by":      nil,
-	})
-	if err != nil {
-		o.log.Error("Failed to update event status to Failed", logger.Field{Key: "error", Value: err.Error()})
 	}
 }

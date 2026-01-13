@@ -13,6 +13,8 @@ CREATE TABLE
     event_key TEXT NOT NULL,
     payload JSONB NOT NULL,
     status OutboxEventStatus NOT NULL,
+    retry_count INT DEFAULT 0,
+    next_retry_at TIMESTAMP DEFAULT NULL,
     locked_at TIMESTAMP DEFAULT NULL,
     locked_by VARCHAR(128) NULL,
     failure_reason VARCHAR(128) DEFAULT NULL,
@@ -21,8 +23,10 @@ CREATE TABLE
     created_at TIMESTAMP DEFAULT NOW ()
   );
 
-CREATE INDEX idx_outbox_events_status_created_at ON outbox_events (status, created_at);
-
-CREATE INDEX idx_outbox_events_locked_at ON outbox_events (locked_at)
+CREATE INDEX idx_outbox_events_pending_ready ON outbox_events (created_at)
 WHERE
-  locked_at IS NOT NULL;
+  status = 'pending';
+
+CREATE INDEX idx_outbox_events_retryable ON outbox_events (locked_at, next_retry_at, created_at)
+WHERE
+  status = 'in_progress';

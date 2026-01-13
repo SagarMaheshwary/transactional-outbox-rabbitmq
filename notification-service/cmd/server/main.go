@@ -42,19 +42,19 @@ func main() {
 		Log: log,
 	})
 
-	rmq, err := rabbitmq.NewRabbitMQ(ctx, &rabbitmq.Opts{
-		Config:                  cfg.AMQP,
-		Logger:                  log,
-		ProcessedMessageService: processedMessageService,
-		DB:                      db,
+	tracerService, err := tracing.NewTracerService(ctx, &tracing.Opts{
+		Config: cfg.Tracing,
+		Logger: log,
 	})
 	if err != nil {
 		log.Fatal(err.Error())
 	}
 
-	tracerService, err := tracing.NewTracerService(ctx, &tracing.Opts{
-		Config: cfg.Tracing,
-		Logger: log,
+	rmq, err := rabbitmq.NewRabbitMQ(ctx, &rabbitmq.Opts{
+		Config:                  cfg.AMQP,
+		Logger:                  log,
+		ProcessedMessageService: processedMessageService,
+		DB:                      db,
 	})
 	if err != nil {
 		log.Fatal(err.Error())
