@@ -31,7 +31,9 @@ type AMQP struct {
 	Password       string
 	PublishTimeout time.Duration
 	Exchange       string
+	DLX            string
 	Queue          string
+	DLQ            string
 }
 
 type Metrics struct {
@@ -60,9 +62,11 @@ func NewConfig(envPath string) (*Config, error) {
 			Port:           getEnvInt("AMQP_PORT", 5672),
 			Username:       getEnv("AMQP_USERNAME", "default"),
 			Password:       getEnv("AMQP_PASSWORD", "default"),
-			PublishTimeout: getEnvDuration("AMQP_PUBLISH_TIMEOUT_SECONDS", time.Second*2),
+			PublishTimeout: getEnvDuration("AMQP_PUBLISH_TIMEOUT", time.Second*2),
 			Exchange:       getEnv("AMQP_EXCHANGE", "outbox.events"),
+			DLX:            getEnv("AMQP_DLX", "outbox.dlx"),
 			Queue:          getEnv("AMQP_QUEUE", "notification-service"),
+			DLQ:            getEnv("AMQP_DLQ", "outbox.dlq.notification-service"),
 		},
 		Metrics: &Metrics{
 			EnableDefaultMetrics: getEnvBool("METRICS_ENABLE_DEFAULT_METRICS", false),

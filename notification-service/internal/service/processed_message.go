@@ -35,7 +35,6 @@ func (p *processedMessageService) TryInsert(
 	tx *gorm.DB,
 	row *model.ProcessedMessage,
 ) (bool, error) {
-
 	query := `
 		INSERT INTO processed_messages (message_id, processed_at)
 		VALUES (?, ?)

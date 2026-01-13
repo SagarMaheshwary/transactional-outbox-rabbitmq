@@ -46,11 +46,20 @@ func (r *RabbitMQ) connect(ctx context.Context) error {
 	}
 	defer channel.Close()
 
-	if err := r.initExchange(channel); err != nil {
+	if err := r.initExchanges(channel); err != nil {
+		return err
+	}
+	if err := r.initQueue(channel); err != nil {
+		return err
+	}
+	if err := r.initRetryExchangeAndQueues(channel); err != nil {
+		return err
+	}
+	if err := r.initDLQ(channel); err != nil {
 		return err
 	}
 
-	if err := r.Consume(ctx, r.Config.Queue, RoutingKeys); err != nil {
+	if err := r.Consume(ctx); err != nil {
 		return err
 	}
 

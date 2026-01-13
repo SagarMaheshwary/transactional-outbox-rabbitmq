@@ -42,7 +42,7 @@ func (r *RabbitMQ) connect(ctx context.Context) error {
 	}
 	defer channel.Close()
 
-	if err := r.initExchange(channel); err != nil {
+	if err := r.initExchanges(channel); err != nil {
 		return err
 	}
 	if err := r.initDLQQueue(channel); err != nil {

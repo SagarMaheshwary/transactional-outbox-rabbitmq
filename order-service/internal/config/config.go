@@ -74,7 +74,7 @@ func NewConfig(envPath string) (*Config, error) {
 			PublishTimeout: getEnvDuration("AMQP_PUBLISH_TIMEOUT", time.Second*2),
 			Exchange:       getEnv("AMQP_EXCHANGE", "outbox.events"),
 			DLX:            getEnv("AMQP_DLX", "outbox.dlx"),
-			DLQ:            getEnv("AMQP_DLQ", "outbox.dlq.order-service"),
+			DLQ:            getEnv("AMQP_DLQ", "order-service.dlq"),
 		},
 		Outbox: &Outbox{
 			MaxConcurrency:        getEnvInt("AMQP_OUTBOX_MAX_CONCURRENCY", 10),
