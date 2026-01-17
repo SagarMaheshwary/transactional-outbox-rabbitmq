@@ -7,6 +7,7 @@ import (
 
 	"github.com/rabbitmq/amqp091-go"
 	"github.com/sagarmaheshwary/transactional-outbox-rabbitmq/notification-service/internal/logger"
+	"github.com/sagarmaheshwary/transactional-outbox-rabbitmq/notification-service/internal/observability/metrics"
 )
 
 type RetryConfig struct {
@@ -22,25 +23,33 @@ const (
 	HeaderRetryCount = "x-retry-count"
 )
 
-func (r *RabbitMQ) RetryMessage(
+func (r *RabbitMQ) retryMessage(
 	ctx context.Context,
 	ch *amqp091.Channel,
 	message amqp091.Delivery,
 ) error {
 	retry := r.nextRetryLevel(message.Headers)
 	if retry == nil {
+		metrics.ConsumerRetryExhaustedTotal.Inc()
+		r.Log.Info("Max retry attempts reached, sending message to DLQ",
+			logger.Field{Key: "message_id", Value: message.MessageId},
+		)
 		return r.sendToDLQ(ctx, ch, message)
 	}
+
+	metrics.ConsumerRetriesTotal.Inc()
 
 	headers := amqp091.Table{}
 	maps.Copy(headers, message.Headers)
 
 	retryCount := getRetryCount(message.Headers)
-	r.Log.Info("Current Retry Count",
-		logger.Field{Key: "retry_count", Value: retryCount},
-		logger.Field{Key: "next_exchange", Value: retry.Name},
-	)
 	headers[HeaderRetryCount] = int32(retryCount + 1)
+
+	r.Log.Info("Sending message to retry exchange",
+		logger.Field{Key: "message_id", Value: message.MessageId},
+		logger.Field{Key: "retry_level", Value: retry.Name},
+		logger.Field{Key: "retry_count", Value: retryCount + 1},
+	)
 
 	opts := &PublishOpts{
 		Ch:         ch,
@@ -48,6 +57,7 @@ func (r *RabbitMQ) RetryMessage(
 		RoutingKey: message.RoutingKey,
 		Body:       message.Body,
 		Headers:    headers,
+		MessageID:  message.MessageId,
 	}
 
 	return r.Publish(ctx, opts)
@@ -60,9 +70,18 @@ func (r *RabbitMQ) sendToDLQ(ctx context.Context, ch *amqp091.Channel, message a
 		RoutingKey: r.Config.DLQ,
 		Body:       message.Body,
 		Headers:    message.Headers,
+		MessageID:  message.MessageId,
+	}
+	if err := r.Publish(ctx, opts); err != nil {
+		metrics.ConsumerDLQPublishFailedTotal.Inc()
+		r.Log.Error("Failed to publish message to DLQ",
+			logger.Field{Key: "message_id", Value: message.MessageId},
+			logger.Field{Key: "error", Value: err},
+		)
 	}
 
-	return r.Publish(ctx, opts)
+	metrics.ConsumerDLQPublishedTotal.Inc()
+	return nil
 }
 
 func (r *RabbitMQ) nextRetryLevel(headers amqp091.Table) *RetryLevel {

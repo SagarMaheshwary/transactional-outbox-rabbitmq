@@ -27,13 +27,31 @@ func (o *Outbox) processEvents(
 			logger.Field{Key: "event_key", Value: event.EventKey},
 		)
 
-		err := o.PublishEvent(ctx, ch, event)
-		if err == nil {
-			o.markPublished(ctx, event)
-			continue
+		if event.Traceparent != "" {
+			ctx = tracing.ExtractTraceParent(ctx, event.Traceparent)
 		}
 
-		o.handleFailure(ctx, ch, event, err)
+		ctx, span := tracing.Tracer.Start(
+			ctx,
+			"Outbox.PublishEvent",
+			trace.WithAttributes(
+				attribute.String("event.id", event.ID),
+				attribute.String("event.key", event.EventKey),
+				attribute.Int("event.retry_count", event.RetryCount),
+			),
+		)
+
+		err := o.PublishEvent(ctx, ch, event)
+
+		outcome := "published"
+		if err != nil {
+			outcome = o.handleFailure(ctx, ch, event, err)
+		}
+
+		o.markPublished(ctx, event)
+
+		span.SetAttributes(attribute.String("outbox.outcome", outcome))
+		span.End()
 	}
 }
 
@@ -42,20 +60,6 @@ func (o *Outbox) PublishEvent(
 	ch *amqp091.Channel,
 	event *model.OutboxEvent,
 ) error {
-	if event.Traceparent != "" {
-		ctx = tracing.ExtractTraceParent(ctx, event.Traceparent)
-	}
-
-	ctx, span := tracing.Tracer.Start(
-		ctx,
-		"Outbox.PublishEvent",
-		trace.WithAttributes(
-			attribute.String("event.id", event.ID),
-			attribute.String("event.key", event.EventKey),
-		),
-	)
-	defer span.End()
-
 	err := o.rabbitmq.Publish(
 		ctx,
 		&rabbitmq.PublishOpts{
@@ -63,11 +67,10 @@ func (o *Outbox) PublishEvent(
 			Exchange:   o.amqpConfig.Exchange,
 			RoutingKey: event.EventKey,
 			Body:       event.Payload,
-			Headers:    amqp091.Table{"message_id": event.ID},
+			MessageID:  event.ID,
 		},
 	)
 	if err != nil {
-		span.RecordError(err)
 		metrics.OutboxEventsTotal.WithLabelValues("failed").Inc()
 		return err
 	}
@@ -80,7 +83,7 @@ func (o *Outbox) PublishEvent(
 }
 
 func (o *Outbox) markPublished(ctx context.Context, event *model.OutboxEvent) {
-	err := o.outboxEventService.UpdateState(ctx, event.ID, map[string]interface{}{
+	_, err := o.outboxEventService.UpdateStateIfInProgress(ctx, event.ID, map[string]interface{}{
 		"status":    model.OutboxEventStatusPublished,
 		"locked_at": nil,
 		"locked_by": nil,

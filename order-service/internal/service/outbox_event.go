@@ -11,9 +11,10 @@ import (
 
 type OutboxEventService interface {
 	Create(ctx context.Context, tx *gorm.DB, row *model.OutboxEvent) error
-	UpdateState(ctx context.Context, eventID string, update map[string]interface{}) error
 	ClaimEvents(ctx context.Context, workerID string, limit int) ([]*model.OutboxEvent, error)
+	UpdateStateIfInProgress(ctx context.Context, eventID string, update map[string]interface{}) (bool, error)
 	CountBacklog(ctx context.Context) (int64, error)
+	CountWaitingRetry(ctx context.Context) (int64, error)
 }
 
 type outboxEventService struct {
@@ -37,16 +38,22 @@ func (o *outboxEventService) Create(ctx context.Context, tx *gorm.DB, row *model
 	return tx.WithContext(ctx).Save(row).Error
 }
 
-func (o *outboxEventService) UpdateState(
+func (o *outboxEventService) UpdateStateIfInProgress(
 	ctx context.Context,
 	eventID string,
 	update map[string]interface{},
-) error {
-	return o.db.WithContext(ctx).
+) (bool, error) {
+
+	result := o.db.WithContext(ctx).
 		Model(&model.OutboxEvent{}).
-		Where("id = ?", eventID).
-		UpdateColumns(update).
-		Error
+		Where("id = ? AND status = ?", eventID, model.OutboxEventStatusInProgress).
+		UpdateColumns(update)
+
+	if result.Error != nil {
+		return false, result.Error
+	}
+
+	return result.RowsAffected > 0, nil
 }
 
 func (o *outboxEventService) ClaimEvents(
@@ -115,6 +122,25 @@ func (o *outboxEventService) CountBacklog(ctx context.Context) (int64, error) {
 			)`,
 			model.OutboxEventStatusPending,
 			model.OutboxEventStatusInProgress,
+		).
+		Count(&count).Error
+
+	return count, err
+}
+
+func (o *outboxEventService) CountWaitingRetry(ctx context.Context) (int64, error) {
+	var count int64
+
+	err := o.db.WithContext(ctx).
+		Model(&model.OutboxEvent{}).
+		Where(`
+				status = ? 
+			AND 
+				next_retry_at IS NOT NULL 
+			AND 
+				next_retry_at > NOW()
+		`,
+			model.OutboxEventStatusPending,
 		).
 		Count(&count).Error
 

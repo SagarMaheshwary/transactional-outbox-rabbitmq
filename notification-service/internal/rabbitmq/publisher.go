@@ -14,6 +14,7 @@ type PublishOpts struct {
 	RoutingKey string
 	Body       interface{}
 	Headers    amqp091.Table
+	MessageID  string
 }
 
 func (r *RabbitMQ) Publish(ctx context.Context, opts *PublishOpts) error {
@@ -41,6 +42,7 @@ func (r *RabbitMQ) Publish(ctx context.Context, opts *PublishOpts) error {
 			ContentType: "application/json",
 			Body:        body,
 			Headers:     opts.Headers,
+			MessageId:   opts.MessageID,
 		},
 	)
 	if err != nil {

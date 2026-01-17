@@ -51,7 +51,7 @@ func NewOutbox(ctx context.Context, opts *Opts) Outbox {
 
 	hostname, _ := os.Hostname()
 	go o.Start(ctx, hostname)
-	go o.startBacklogReporter(ctx)
+	go o.startMetricsReporter(ctx)
 
 	return o
 }

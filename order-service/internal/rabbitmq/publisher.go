@@ -3,6 +3,7 @@ package rabbitmq
 import (
 	"context"
 	"encoding/json"
+	"maps"
 
 	"github.com/rabbitmq/amqp091-go"
 	"github.com/sagarmaheshwary/transactional-outbox-rabbitmq/order-service/internal/logger"
@@ -14,6 +15,7 @@ type PublishOpts struct {
 	RoutingKey string
 	Body       interface{}
 	Headers    amqp091.Table
+	MessageID  string
 }
 
 func (r *RabbitMQ) Publish(ctx context.Context, opts *PublishOpts) error {
@@ -31,6 +33,12 @@ func (r *RabbitMQ) Publish(ctx context.Context, opts *PublishOpts) error {
 		}
 	}
 
+	headers := headersWithTraceContext(ctx)
+	if opts.Headers == nil {
+		opts.Headers = amqp091.Table{}
+	}
+	maps.Copy(opts.Headers, headers)
+
 	err := opts.Ch.PublishWithContext(
 		ctx,
 		opts.Exchange,
@@ -41,11 +49,13 @@ func (r *RabbitMQ) Publish(ctx context.Context, opts *PublishOpts) error {
 			ContentType: "application/json",
 			Body:        body,
 			Headers:     opts.Headers,
+			MessageId:   opts.MessageID,
 		},
 	)
 	if err != nil {
 		r.Log.Error("RabbitMQ failed to publish message",
 			logger.Field{Key: "routing_key", Value: opts.RoutingKey},
+			logger.Field{Key: "message_id", Value: opts.MessageID},
 			logger.Field{Key: "error", Value: err.Error()},
 		)
 		return err

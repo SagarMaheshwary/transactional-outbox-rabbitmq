@@ -25,5 +25,5 @@ func getRetryCount(headers amqp091.Table) int {
 			return int(retryCount)
 		}
 	}
-	return 1
+	return 0
 }
