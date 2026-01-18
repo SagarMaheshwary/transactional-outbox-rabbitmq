@@ -1,37 +1,38 @@
 # Transactional Outbox RabbitMQ
 
-This repository accompanies **Article 1** of a series on the **Transactional Outbox pattern**, demonstrating how to reliably publish domain events from a database-backed service using **Go**, **PostgreSQL**, **RabbitMQ**, and **Docker Compose**.
+This repository accompanies a **two-part series** on the **Transactional Outbox pattern**, demonstrating how to reliably publish domain events from a database-backed service using **Go**, **PostgreSQL**, **RabbitMQ**, and **Docker Compose**.
 
-The focus is on **correctness and observability**, not frameworks or abstractions.
+The focus is on **correctness, failure handling, and observability**, not frameworks or abstractions.
 
-**Read the article:**
-_Transactional Outbox with RabbitMQ: Building Reliable Event Publishing in Microservices_ (coming soon)
+**Read the articles:**
+
+- Article 1: _Transactional Outbox with RabbitMQ: Building Reliable Event Publishing in Microservices_
+- Article 2: _Transactional Outbox with RabbitMQ: Handling Retries, Dead-Letter Queues, and Observability_ (coming soon)
 
 ## What This Repository Demonstrates
 
 - Transactional outbox pattern with PostgreSQL
 - Reliable event publishing without dual writes
-- Worker-based outbox polling and leasing
-- Consumer-side idempotency
-- Minimal but high-signal Prometheus metrics
-- End-to-end trace propagation across async boundaries
-
-This is **not** a production-ready framework, it’s a **reference implementation** meant to explain _why_ things are done a certain way.
+- Worker-based outbox polling with retry and DLQ handling
+- Consumer-side retries and dead-letter exchange pattern
+- High-signal Prometheus metrics and Grafana dashboards
+- End-to-end trace propagation with retry, publish, and consumer outcome attributes
+- Correlated trace-logs using `logger.WithContext()`
 
 ## Architecture Overview
 
 The system consists of two services and a shared broker:
 
 - **Order Service**
-
   - Handles HTTP requests
   - Writes domain data and outbox events atomically
   - Publishes events asynchronously via an outbox worker
+  - Implements **producer-side retries** and **DLQ publishing** on permanent failure
 
 - **Notification Service**
-
   - Consumes events from RabbitMQ
   - Ensures idempotent processing using a local table
+  - Implements **consumer retries** and **DLQ publishing** on permanent failure
 
 **Each service owns its own database schema. There is no shared database.**
 
@@ -93,30 +94,40 @@ order-service         | {"level":"info","message":"Create Order Request Arrived"
 # Outbox worker picks up the event
 order-service         | {"level":"info","count":1,"message":"Fetched outbox events"}
 order-service         | {"level":"info","worker_id":2,"event_id":"a6f6d2df-f2f9-4a0f-98b7-73c99e96f75b","event_key":"order.created","message":"Worker processing event"}
-order-service         | {"level":"info","routing_key":"order.created","message":"RabbitMQ message published"}
+order-service         | {"level":"info","routing_key":"order.created","outcome":"published","message":"RabbitMQ message published"}
 
 # Notification service consumes the message
 notification-service  | {"level":"info","message":"Broker Message Arrived"}
-notification-service  | {"level":"info","payload":{"id":5,"product_id":"sku123","quantity":1},"message":"Order email sent to customer"}
+notification-service  | {"level":"info","payload":{"id":5,"product_id":"sku123","quantity":1},"outcome":"success","message":"Order email sent to customer"}
 ```
+
+> You can replace `os.Stderr` with `zerolog.ConsoleWriter{Out: os.Stderr, TimeFormat: time.RFC3339}`in`main.go` to pretty print logs instead of JSON.
 
 This confirms the full path:
 
-**HTTP → DB → Outbox → Broker → Consumer**
+**HTTP → DB → Outbox → Broker → Consumer → DLQ (if any)**
 
 ## Observability
 
 ### Metrics (Prometheus + Grafana)
 
-The Order Service exposes a minimal set of **high-signal outbox metrics**, including:
+The Order and Notification Services expose **high-signal metrics** covering:
 
 - Outbox backlog
-- Event publish success / failure counts
+- Publish success / failure counts
+- Retries and retry exhaustions
+- DLQ publishes and publish failures
 - End-to-end publish latency
 
-**Grafana dashboard screenshot (from the article):**
+**Grafana dashboards:**
+Outbox Processing Dashboard (Article 1):
+![Outbox Processing Dashboard](./assets/outbox-grafana-dashboard-article-1.png)
 
-![Outbox Grafana Dashboard](./assets/outbox-grafana-dashboard-article-1.png)
+Outbox Reliability Dashboard (Article 2):
+![Outbox Grafana Dashboard](./assets/outbox-grafana-dashboard-article-2.png)
+
+Consumer Processing Dashboard (Article 2):
+![Consumer Metrics Dashboard](./assets/consumer-grafana-dashboard-article-2.png)
 
 Grafana is available at:
 
@@ -128,12 +139,13 @@ http://localhost:3000
 
 ### Tracing (Jaeger)
 
-Distributed tracing is wired end-to-end:
+Distributed tracing now includes:
 
 - HTTP request span
 - Outbox event creation
-- Asynchronous publish span
-- RabbitMQ consume span
+- Asynchronous publish span with `retry_count` and `outbox.outcome`
+- Consumer processing span with `consumer.outcome`
+- Correlated logs via `logger.WithContext()`
 
 **Jaeger trace example (from the article):**
 
@@ -144,44 +156,6 @@ Jaeger UI:
 ```
 http://localhost:16686
 ```
-
-## Repository Structure
-
-```bash
-.
-├── order-service
-│   ├── cmd
-│   └── internal
-│       ├── database
-│       ├── outbox
-│       ├── rabbitmq
-│       └── service
-├── notification-service
-│   ├── cmd
-│   └── internal
-│       ├── database
-│       ├── rabbitmq
-│       └── service
-├── docker-compose.yaml
-└── README.md
-```
-
-Each service is intentionally structured similarly to reduce cognitive load.
-
-## What’s Covered in Article 1
-
-- Atomic writes using the outbox pattern
-- Worker-based publishing model
-- Failure handling (success vs failed states)
-- Consumer-side idempotency
-- Minimal metrics and tracing
-
-## What’s Coming Next (Article 2)
-
-- Retrying outbox publishing and designing Dead Letter Queues (DLQs)
-- Consumer-side retries using dead-letter exchanges
-- Operational metrics and dashboards that surface failure modes early
-- and more...
 
 ## Support & Contributions
 

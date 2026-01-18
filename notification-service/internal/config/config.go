@@ -66,7 +66,7 @@ func NewConfig(envPath string) (*Config, error) {
 			Exchange:       getEnv("AMQP_EXCHANGE", "outbox.events"),
 			DLX:            getEnv("AMQP_DLX", "outbox.dlx"),
 			Queue:          getEnv("AMQP_QUEUE", "notification-service"),
-			DLQ:            getEnv("AMQP_DLQ", "outbox.dlq.notification-service"),
+			DLQ:            getEnv("AMQP_DLQ", "notification-service.dlq"),
 		},
 		Metrics: &Metrics{
 			EnableDefaultMetrics: getEnvBool("METRICS_ENABLE_DEFAULT_METRICS", false),
