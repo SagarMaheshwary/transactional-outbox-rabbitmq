@@ -6,8 +6,8 @@ The focus is on **correctness, failure handling, and observability**, not framew
 
 **Read the articles:**
 
-- Article 1: _Transactional Outbox with RabbitMQ: Building Reliable Event Publishing in Microservices_
-- Article 2: _Transactional Outbox with RabbitMQ: Handling Retries, Dead-Letter Queues, and Observability_ (coming soon)
+- [Article 1: Transactional Outbox with RabbitMQ: Building Reliable Event Publishing in Microservices](https://dev.to/sagarmaheshwary/transactional-outbox-with-rabbitmq-part-1-building-reliable-event-publishing-in-microservices-2of)
+- Article 2: Transactional Outbox with RabbitMQ: Handling Retries, Dead-Letter Queues, and Observability (coming soon)
 
 ## What This Repository Demonstrates
 
@@ -36,7 +36,7 @@ The system consists of two services and a shared broker:
 
 **Each service owns its own database schema. There is no shared database.**
 
-![Outbox Highlevel Diagram](./assets/outbox-architecture-diagram.png)
+![Outbox Highlevel Diagram](./assets/article-1-system-overview-diagram.png)
 
 ## Running Locally with Docker Compose
 
