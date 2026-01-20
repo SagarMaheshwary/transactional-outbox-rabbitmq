@@ -60,6 +60,12 @@ func (o *Outbox) PublishEvent(
 	ch *amqp091.Channel,
 	event *model.OutboxEvent,
 ) error {
+	o.log.WithContext(ctx).Info("Publishing outbox event",
+		logger.Field{Key: "event_id", Value: event.ID},
+		logger.Field{Key: "event_key", Value: event.EventKey},
+		logger.Field{Key: "retry_count", Value: event.RetryCount},
+	)
+
 	err := o.rabbitmq.Publish(
 		ctx,
 		&rabbitmq.PublishOpts{
@@ -72,6 +78,10 @@ func (o *Outbox) PublishEvent(
 	)
 	if err != nil {
 		metrics.OutboxEventsTotal.WithLabelValues("failed").Inc()
+		o.log.WithContext(ctx).Error("Failed to publish outbox event",
+			logger.Field{Key: "error", Value: err.Error()},
+			logger.Field{Key: "event_id", Value: event.ID},
+		)
 		return err
 	}
 
@@ -89,6 +99,9 @@ func (o *Outbox) markPublished(ctx context.Context, event *model.OutboxEvent) {
 		"locked_by": nil,
 	})
 	if err != nil {
-		o.log.Error("Failed to update event status to Published", logger.Field{Key: "error", Value: err.Error()})
+		o.log.WithContext(ctx).Error("Failed to update event status to Published",
+			logger.Field{Key: "error", Value: err.Error()},
+			logger.Field{Key: "event_id", Value: event.ID},
+		)
 	}
 }

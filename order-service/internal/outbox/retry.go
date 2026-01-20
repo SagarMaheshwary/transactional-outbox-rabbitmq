@@ -35,7 +35,7 @@ func (o *Outbox) handleFailure(
 
 func (o *Outbox) scheduleRetry(ctx context.Context, event *model.OutboxEvent) error {
 	backoff := backoff(event.RetryCount, o.config.RetryDelay)
-	o.log.Info("Scheduling retry for event",
+	o.log.WithContext(ctx).Info("Scheduling retry for event",
 		logger.Field{Key: "event_id", Value: event.ID},
 		logger.Field{Key: "retry_count", Value: event.RetryCount},
 		logger.Field{Key: "backoff_seconds", Value: backoff.Seconds()},
@@ -49,7 +49,10 @@ func (o *Outbox) scheduleRetry(ctx context.Context, event *model.OutboxEvent) er
 		"locked_by":     nil,
 	})
 	if err != nil {
-		o.log.Error("Failed to schedule retry for event", logger.Field{Key: "error", Value: err.Error()})
+		o.log.WithContext(ctx).Error("Failed to schedule retry for event",
+			logger.Field{Key: "error", Value: err.Error()},
+			logger.Field{Key: "event_id", Value: event.ID},
+		)
 		return err
 	}
 

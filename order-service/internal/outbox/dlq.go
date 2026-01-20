@@ -36,12 +36,12 @@ func (o *Outbox) publishToDLQ(
 	)
 	if err != nil {
 		metrics.OutboxDLQPublishFailedTotal.Inc()
-		o.log.Error("Failed to publish event to DLQ", logger.Field{Key: "error", Value: err.Error()})
+		o.log.WithContext(ctx).Error("Failed to publish event to DLQ", logger.Field{Key: "error", Value: err.Error()})
 		return err
 	}
 
 	metrics.OutboxDLQPublishedTotal.Inc()
-	o.log.Info("Event sent to DLQ after max retries",
+	o.log.WithContext(ctx).Info("Event sent to DLQ after max retries",
 		logger.Field{Key: "event_id", Value: event.ID},
 		logger.Field{Key: "event_key", Value: event.EventKey},
 		logger.Field{Key: "error", Value: procErr.Error()},
@@ -63,7 +63,7 @@ func (o *Outbox) markFailed(
 		"locked_by":      nil,
 	})
 	if err != nil {
-		o.log.Error("Failed to update event status to Failed",
+		o.log.WithContext(ctx).Error("Failed to update event status to Failed",
 			logger.Field{Key: "error", Value: err.Error()},
 			logger.Field{Key: "event_id", Value: event.ID},
 		)

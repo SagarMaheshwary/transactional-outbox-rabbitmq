@@ -31,7 +31,7 @@ func (r *RabbitMQ) retryMessage(
 	retry := r.nextRetryLevel(message.Headers)
 	if retry == nil {
 		metrics.ConsumerRetryExhaustedTotal.Inc()
-		r.Log.Info("Max retry attempts reached, sending message to DLQ",
+		r.Log.WithContext(ctx).Info("Max retry attempts reached, sending message to DLQ",
 			logger.Field{Key: "message_id", Value: message.MessageId},
 		)
 		return r.sendToDLQ(ctx, ch, message)
@@ -45,7 +45,7 @@ func (r *RabbitMQ) retryMessage(
 	retryCount := getRetryCount(message.Headers)
 	headers[HeaderRetryCount] = int32(retryCount + 1)
 
-	r.Log.Info("Sending message to retry exchange",
+	r.Log.WithContext(ctx).Info("Sending message to retry exchange",
 		logger.Field{Key: "message_id", Value: message.MessageId},
 		logger.Field{Key: "retry_level", Value: retry.Name},
 		logger.Field{Key: "retry_count", Value: retryCount + 1},
@@ -74,7 +74,7 @@ func (r *RabbitMQ) sendToDLQ(ctx context.Context, ch *amqp091.Channel, message a
 	}
 	if err := r.Publish(ctx, opts); err != nil {
 		metrics.ConsumerDLQPublishFailedTotal.Inc()
-		r.Log.Error("Failed to publish message to DLQ",
+		r.Log.WithContext(ctx).Error("Failed to publish message to DLQ",
 			logger.Field{Key: "message_id", Value: message.MessageId},
 			logger.Field{Key: "error", Value: err},
 		)

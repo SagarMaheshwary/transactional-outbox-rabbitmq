@@ -47,8 +47,9 @@ func (r *RabbitMQ) Consume(ctx context.Context) error {
 func (r *RabbitMQ) processMessages(ctx context.Context, ch *amqp091.Channel, messages <-chan amqp091.Delivery) {
 	for message := range messages {
 		metrics.ConsumerMessagesTotal.Inc()
+
 		retryCount := getRetryCount(message.Headers)
-		r.Log.Info("Broker Message Arrived",
+		r.Log.WithContext(ctx).Info("Broker Message Arrived",
 			logger.Field{Key: "routing_key", Value: message.RoutingKey},
 			logger.Field{Key: "message_id", Value: message.MessageId},
 			logger.Field{Key: "retry_count", Value: retryCount},
@@ -68,14 +69,16 @@ func (r *RabbitMQ) processMessages(ctx context.Context, ch *amqp091.Channel, mes
 			metrics.ConsumerProcessingFailedTotal.Inc()
 
 			if errors.Is(err, constant.ErrPermanent) {
-				r.Log.Error("Permanent error processing message, sending to DLQ",
+				r.Log.WithContext(ctx).Error("Permanent error processing message, sending to DLQ",
 					logger.Field{Key: "error", Value: err.Error()},
+					logger.Field{Key: "message_id", Value: message.MessageId},
 				)
 				r.sendToDLQ(ctx, ch, message)
 				outcome = "dlq"
 			} else if errors.Is(err, constant.ErrTransient) {
-				r.Log.Error("Transient error processing message, sending to retry exchange",
+				r.Log.WithContext(ctx).Error("Transient error processing message, sending to retry exchange",
 					logger.Field{Key: "error", Value: err.Error()},
+					logger.Field{Key: "message_id", Value: message.MessageId},
 				)
 				r.retryMessage(ctx, ch, message)
 				outcome = "retry"
