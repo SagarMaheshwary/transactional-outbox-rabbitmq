@@ -47,19 +47,18 @@ func (r *RabbitMQ) Consume(ctx context.Context) error {
 func (r *RabbitMQ) processMessages(ctx context.Context, ch *amqp091.Channel, messages <-chan amqp091.Delivery) {
 	for message := range messages {
 		metrics.ConsumerMessagesTotal.Inc()
-
 		retryCount := getRetryCount(message.Headers)
-		r.Log.WithContext(ctx).Info("Broker Message Arrived",
-			logger.Field{Key: "routing_key", Value: message.RoutingKey},
-			logger.Field{Key: "message_id", Value: message.MessageId},
-			logger.Field{Key: "retry_count", Value: retryCount},
-		)
 
 		ctx = contextWithOtelHeaders(ctx, message.Headers)
 		ctx, span := tracing.Tracer.Start(ctx, "rabbitmq.consume")
 		span.SetAttributes(
 			attribute.String("rabbitmq.routing_key", message.RoutingKey),
 			attribute.Int("rabbitmq.retry_count", retryCount),
+		)
+		r.Log.WithContext(ctx).Info("Broker Message Arrived",
+			logger.Field{Key: "routing_key", Value: message.RoutingKey},
+			logger.Field{Key: "message_id", Value: message.MessageId},
+			logger.Field{Key: "retry_count", Value: retryCount},
 		)
 
 		outcome := "success"
