@@ -7,7 +7,7 @@ The focus is on **correctness, failure handling, and observability**, not framew
 **Read the articles:**
 
 - [Article 1: Transactional Outbox with RabbitMQ: Building Reliable Event Publishing in Microservices](https://dev.to/sagarmaheshwary/transactional-outbox-with-rabbitmq-part-1-building-reliable-event-publishing-in-microservices-2of)
-- Article 2: Transactional Outbox with RabbitMQ: Handling Retries, Dead-Letter Queues, and Observability (coming soon)
+- [Article 2: Transactional Outbox with RabbitMQ: Handling Retries, Dead-Letter Queues, and Observability](https://dev.to/sagarmaheshwary/transactional-outbox-with-rabbitmq-part-2-handling-retries-dead-letter-queues-and-observability-4h19)
 
 ## What This Repository Demonstrates
 
@@ -35,8 +35,6 @@ The system consists of two services and a shared broker:
   - Implements **consumer retries** and **DLQ publishing** on permanent failure
 
 **Each service owns its own database schema. There is no shared database.**
-
-![Outbox Highlevel Diagram](./assets/article-1-system-overview-diagram.png)
 
 ## Running Locally with Docker Compose
 
@@ -120,8 +118,6 @@ The Order and Notification Services expose **high-signal metrics** covering:
 - End-to-end publish latency
 
 **Grafana dashboards:**
-Outbox Processing Dashboard (Article 1):
-![Outbox Processing Dashboard](./assets/outbox-grafana-dashboard-article-1.png)
 
 Outbox Reliability Dashboard (Article 2):
 ![Outbox Grafana Dashboard](./assets/outbox-grafana-dashboard-article-2.png)
